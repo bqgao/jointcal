@@ -621,9 +621,6 @@ config.calibrate.astrometry.matcher.numBrightStars=50
 # 	Valid Range = [2,inf)
 config.calibrate.astrometry.matcher.minMatchedPairs=30
 
-# maximum determinant of linear transformation matrix for a usable solution
-config.calibrate.astrometry.matcher.maxDeterminant=0.02
-
 # Minimum number of matched pairs as a fraction of the smaller of the number of reference stars or the number of good sources; the actual minimum is the smaller of this value or minMatchedPairs
 # 	Valid Range = [0,1)
 config.calibrate.astrometry.matcher.minFracMatchedPairs=0.3
@@ -638,20 +635,12 @@ config.calibrate.astrometry.matcher.maxRotationDeg=1.0
 # number of points to define a shape for matching
 config.calibrate.astrometry.matcher.numPointsForShape=6
 
-# Maximum separation between reference objects and sources beyond which they will not be considered a match (arcsec)
-# 	Valid Range = [0,inf)
-config.calibrate.astrometry.matcher.maxMatchDistArcSec=5.0
-
 # Minimum allowed signal-to-noise ratio for sources used for matching (in the flux specified by sourceFluxType); <=0 for no limit
 config.calibrate.astrometry.matcher.minSnr=40.0
 
 # Maximum allowed shift of WCS, due to matching (pixel)
 # 	Valid Range = [-inf,4000)
 config.calibrate.astrometry.matcher.maxOffsetPix=300
-
-# Allowed non-perpendicularity of x and y (degree)
-# 	Valid Range = [-inf,45.0)
-config.calibrate.astrometry.matcher.allowedNonperpDeg=3.0
 
 # maximum number of iterations of match sources and fit WCSignored if not fitting a WCS
 # 	Valid Range = [1,inf)
@@ -1197,20 +1186,12 @@ config.charImage.astrometry.matcher.maxRotationDeg=1.0
 # number of points to define a shape for matching
 config.charImage.astrometry.matcher.numPointsForShape=6
 
-# Maximum separation between reference objects and sources beyond which they will not be considered a match (arcsec)
-# 	Valid Range = [0,inf)
-config.charImage.astrometry.matcher.maxMatchDistArcSec=3.0
-
 # Minimum allowed signal-to-noise ratio for sources used for matching (in the flux specified by sourceFluxType); <=0 for no limit
 config.charImage.astrometry.matcher.minSnr=40.0
 
 # Maximum allowed shift of WCS, due to matching (pixel)
 # 	Valid Range = [-inf,4000)
 config.charImage.astrometry.matcher.maxOffsetPix=300
-
-# Allowed non-perpendicularity of x and y (degree)
-# 	Valid Range = [-inf,45.0)
-config.charImage.astrometry.matcher.allowedNonperpDeg=3.0
 
 # maximum number of iterations of match sources and fit WCSignored if not fitting a WCS
 # 	Valid Range = [1,inf)
