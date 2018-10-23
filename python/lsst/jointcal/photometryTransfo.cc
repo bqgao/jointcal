@@ -61,6 +61,7 @@ void declarePhotometryTransfo(py::module &mod) {
             });
 
     utils::python::addOutputOp(cls, "__str__");
+    utils::python::addOutputOp(cls, "__repr__");
 }
 
 void declarePhotometryTransfoSpatiallyInvariant(py::module &mod) {
@@ -92,6 +93,10 @@ void declarePhotometryTransfoChebyshev(py::module &mod) {
     cls.def("getCoefficients", &PhotometryTransfoChebyshev::getCoefficients);
     cls.def("getOrder", &PhotometryTransfoChebyshev::getOrder);
     cls.def("getBBox", &PhotometryTransfoChebyshev::getBBox);
+    cls.def("integrate", py::overload_cast<>(&PhotometryTransfoChebyshev::integrate, py::const_));
+    cls.def("integrate",
+            py::overload_cast<afw::geom::Box2D const &>(&PhotometryTransfoChebyshev::integrate, py::const_),
+            "box"_a);
 }
 
 void declareFluxTransfoChebyshev(py::module &mod) {

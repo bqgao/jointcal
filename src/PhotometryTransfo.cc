@@ -70,11 +70,11 @@ struct RecursionArrayImitator {
 };
 
 // Compute an affine transform that maps an arbitrary box to [-1,1]x[-1,1]
-afw::geom::AffineTransform makeChebyshevRangeTransform(afw::geom::Box2D const &bbox) {
-    return afw::geom::AffineTransform(
-            afw::geom::LinearTransform::makeScaling(2.0 / bbox.getWidth(), 2.0 / bbox.getHeight()),
-            afw::geom::Extent2D(-(2.0 * bbox.getCenterX()) / bbox.getWidth(),
-                                -(2.0 * bbox.getCenterY()) / bbox.getHeight()));
+lsst::geom::AffineTransform makeChebyshevRangeTransform(lsst::geom::Box2D const &bbox) {
+    return lsst::geom::AffineTransform(
+            lsst::geom::LinearTransform::makeScaling(2.0 / bbox.getWidth(), 2.0 / bbox.getHeight()),
+            lsst::geom::Extent2D(-(2.0 * bbox.getCenterX()) / bbox.getWidth(),
+                                 -(2.0 * bbox.getCenterY()) / bbox.getHeight()));
 }
 
 // Initialize a "unit" Chebyshev
@@ -88,7 +88,7 @@ ndarray::Array<double, 2, 2> _initializeChebyshev(size_t order, bool identity) {
 }
 }  // namespace
 
-PhotometryTransfoChebyshev::PhotometryTransfoChebyshev(size_t order, afw::geom::Box2D const &bbox,
+PhotometryTransfoChebyshev::PhotometryTransfoChebyshev(size_t order, lsst::geom::Box2D const &bbox,
                                                        bool identity)
         : _bbox(bbox),
           _toChebyshevRange(makeChebyshevRangeTransform(bbox)),
@@ -97,7 +97,7 @@ PhotometryTransfoChebyshev::PhotometryTransfoChebyshev(size_t order, afw::geom::
           _nParameters((order + 1) * (order + 2) / 2) {}
 
 PhotometryTransfoChebyshev::PhotometryTransfoChebyshev(ndarray::Array<double, 2, 2> const &coefficients,
-                                                       afw::geom::Box2D const &bbox)
+                                                       lsst::geom::Box2D const &bbox)
         : _bbox(bbox),
           _toChebyshevRange(makeChebyshevRangeTransform(bbox)),
           _coefficients(coefficients),
@@ -126,6 +126,74 @@ double integrateTn(int n) {
 }
 }  // namespace
 
+double PhotometryTransfoChebyshev::oneIntegral(double x, double y) const {
+    lsst::geom::Point2D point = _toChebyshevRange(lsst::geom::Point2D(x, y));
+
+    // The nth/mth x/y chebyshev polynomial
+    Eigen::VectorXd Tnx(_order + 2);
+    Eigen::VectorXd Tmy(_order + 2);
+
+    // Algorithm: compute all the individual components recursively (since we'll need them anyway),
+    // then combine them into the final answer.
+    Tnx[0] = 1;
+    Tmy[0] = 1;
+    Tnx[1] = point.getX();
+    Tmy[1] = point.getY();
+    for (ndarray::Size i = 2; i <= _order + 1; ++i) {
+        Tnx[i] = 2 * point.getX() * Tnx[i - 1] - Tnx[i - 2];
+        Tmy[i] = 2 * point.getY() * Tmy[i - 1] - Tmy[i - 2];
+    }
+
+    // NOTE: the indexing in this method and offsetParams must be kept consistent!
+    double result = 0;
+    result += _coefficients[0][0] * point.getX() * point.getY();
+    std::cout << "x y: " << x << " " << y << "; " << point.getX() << " " << point.getY() << std::endl;
+    std::cout << "0,0 " << result << std::endl;
+    // NOTE:
+    if (_order >= 1) {
+        // integral of T1(x)T0(y)
+        result += _coefficients[0][1] * 0.5 * Tnx[1] * point.getX() * point.getY();
+        std::cout << "0,1 " << result << std::endl;
+        // integral of T0(x)T1(y)
+        result += _coefficients[1][0] * 0.5 * point.getX() * Tmy[1] * point.getY();
+        std::cout << "1,0 " << result << std::endl;
+    }
+    // 1,1 is part of order >= 2, but can't be computed with the relation below.
+    if (_order > 1) {
+        // integral of T1(x)T1(y)
+        result += _coefficients[1][1] * 0.5 * 0.5 * point.getX() * Tnx[1] * point.getY() * Tmy[1];
+        std::cout << "1,1 " << result << std::endl;
+    }
+    for (ndarray::Size j = 2; j <= _order; ++j) {
+        ndarray::Size const iMax = _order - j;  // to save re-computing `i+j <= order` every inner step.
+        for (ndarray::Size i = 0; i <= iMax; ++i) {
+            // n*T[n+1]/(n^2 - 1) - x*T[n]/(n-1)
+            double tempy = j * Tmy[j + 1] / (j * j - 1) + point.getY() * Tmy[j] / (j - 1);
+            double tempx = i * Tnx[i + 1] / (i * i - 1) + point.getX() * Tnx[i] / (i - 1);
+            std::cout << i << " " << j << " " << tempx << " " << tempy << std::endl;
+            result += _coefficients[i][j] * tempx * tempy;
+            std::cout << i << "," << j << " " << result << std::endl;
+        }
+    }
+    std::cout << _toChebyshevRange.getLinear().computeDeterminant() << std::endl;
+    result /= _toChebyshevRange.getLinear().computeDeterminant();
+    std::cout << result << " %%%%%%%%%%%%%%%%%%%%%" << std::endl;
+    return result;
+}
+
+double PhotometryTransfoChebyshev::integrate(lsst::geom::Box2D const &bbox) const {
+    double result = 0;
+
+    result += oneIntegral(bbox.getMaxX(), bbox.getMaxY());
+    result += oneIntegral(bbox.getMinX(), bbox.getMinY());
+    result -= oneIntegral(bbox.getMaxX(), bbox.getMinY());
+    result -= oneIntegral(bbox.getMinX(), bbox.getMaxY());
+
+    std::cout << "###############################################" << std::endl;
+
+    return result;
+}
+
 double PhotometryTransfoChebyshev::integrate() const {
     double result = 0;
     double determinant = _bbox.getArea() / 4.0;
@@ -135,6 +203,10 @@ double PhotometryTransfoChebyshev::integrate() const {
         }
     }
     return result * determinant;
+}
+
+double PhotometryTransfoChebyshev::mean(lsst::geom::Box2D const &bbox) const {
+    return integrate(bbox) / bbox.getArea();
 }
 
 double PhotometryTransfoChebyshev::mean() const { return integrate() / _bbox.getArea(); }
@@ -154,14 +226,14 @@ Eigen::VectorXd PhotometryTransfoChebyshev::getParameters() const {
 }
 
 double PhotometryTransfoChebyshev::computeChebyshev(double x, double y) const {
-    afw::geom::Point2D p = _toChebyshevRange(afw::geom::Point2D(x, y));
+    lsst::geom::Point2D p = _toChebyshevRange(lsst::geom::Point2D(x, y));
     return evaluateFunction1d(RecursionArrayImitator(_coefficients, p.getX()), p.getY(),
                               _coefficients.getSize<0>());
 }
 
 void PhotometryTransfoChebyshev::computeChebyshevDerivatives(double x, double y,
                                                              Eigen::Ref<Eigen::VectorXd> derivatives) const {
-    afw::geom::Point2D p = _toChebyshevRange(afw::geom::Point2D(x, y));
+    lsst::geom::Point2D p = _toChebyshevRange(lsst::geom::Point2D(x, y));
     // Algorithm: compute all the individual components recursively (since we'll need them anyway),
     // then combine them into the final answer vectors.
     Eigen::VectorXd Tnx(_order + 1);

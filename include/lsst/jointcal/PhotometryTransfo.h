@@ -224,7 +224,7 @@ public:
      * @param[in]  bbox   The bounding box it is valid within, to rescale it to [-1,1].
      * @param[in]  identity If true, set a_0,0==1, otherwise all coefficients are 0.
      */
-    PhotometryTransfoChebyshev(size_t order, afw::geom::Box2D const &bbox, bool identity);
+    PhotometryTransfoChebyshev(size_t order, lsst::geom::Box2D const &bbox, bool identity);
 
     /**
      * Create a Chebyshev transfo with the specified coefficients.
@@ -236,7 +236,7 @@ public:
      * @param[in]  bbox          The bounding box it is valid within, to rescale it to [-1,1].
      */
     PhotometryTransfoChebyshev(ndarray::Array<double, 2, 2> const &coefficients,
-                               afw::geom::Box2D const &bbox);
+                               lsst::geom::Box2D const &bbox);
 
     /// @copydoc PhotometryTransfo::transformError
     double transformError(double x, double y, double value, double valueErr) const override { return 0; }
@@ -258,9 +258,16 @@ public:
 
     ndarray::Size getOrder() const { return _order; }
 
-    afw::geom::Box2D getBBox() const { return _bbox; }
+    lsst::geom::Box2D getBBox() const { return _bbox; }
 
+    /// Compute the mean of this tranform on the bbox (default to its own bbox).
+    double mean(lsst::geom::Box2D const &bbox) const;
+    /// @overload mean() const;
     double mean() const;
+
+    // Compute the integral of this function over a bounding-box (default: this->bbox).
+    double integrate(lsst::geom::Box2D const &bbox) const;
+    double integrate() const;
 
 protected:
     /**
@@ -275,15 +282,15 @@ protected:
     void computeChebyshevDerivatives(double x, double y, Eigen::Ref<Eigen::VectorXd> derivatives) const;
 
 private:
-    afw::geom::Box2D _bbox;                        // the domain of this function
-    afw::geom::AffineTransform _toChebyshevRange;  // maps points from the bbox to [-1,1]x[-1,1]
+    lsst::geom::Box2D _bbox;                        // the domain of this function
+    lsst::geom::AffineTransform _toChebyshevRange;  // maps points from the bbox to [-1,1]x[-1,1]
 
     ndarray::Array<double, 2, 2> _coefficients;  // shape=(order+1, order+1)
     ndarray::Size _order;
     ndarray::Size _nParameters;
 
-    // Compute the integral of this function over its bounding-box.
-    double integrate() const;
+    // One portion of a definite 2-d integral.
+    double oneIntegral(double x, double y) const;
 };
 
 /**
@@ -291,10 +298,10 @@ private:
  */
 class FluxTransfoChebyshev : public PhotometryTransfoChebyshev {
 public:
-    FluxTransfoChebyshev(size_t order, afw::geom::Box2D const &bbox)
+    FluxTransfoChebyshev(size_t order, lsst::geom::Box2D const &bbox)
             : PhotometryTransfoChebyshev(order, bbox, true) {}
 
-    FluxTransfoChebyshev(ndarray::Array<double, 2, 2> const &coefficients, afw::geom::Box2D const &bbox)
+    FluxTransfoChebyshev(ndarray::Array<double, 2, 2> const &coefficients, lsst::geom::Box2D const &bbox)
             : PhotometryTransfoChebyshev(coefficients, bbox) {}
 
     /// @copydoc PhotometryTransfo::transform
@@ -320,10 +327,10 @@ public:
  */
 class MagnitudeTransfoChebyshev : public PhotometryTransfoChebyshev {
 public:
-    MagnitudeTransfoChebyshev(size_t order, afw::geom::Box2D const &bbox)
+    MagnitudeTransfoChebyshev(size_t order, lsst::geom::Box2D const &bbox)
             : PhotometryTransfoChebyshev(order, bbox, false) {}
 
-    MagnitudeTransfoChebyshev(ndarray::Array<double, 2, 2> const &coefficients, afw::geom::Box2D const &bbox)
+    MagnitudeTransfoChebyshev(ndarray::Array<double, 2, 2> const &coefficients, lsst::geom::Box2D const &bbox)
             : PhotometryTransfoChebyshev(coefficients, bbox) {}
 
     /// @copydoc PhotometryTransfo::transform

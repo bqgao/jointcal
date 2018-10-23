@@ -255,6 +255,13 @@ std::shared_ptr<afw::image::PhotoCalib> ConstrainedFluxModel::toPhotoCalib(CcdIm
     assert(visitTransfo != nullptr);
     auto focalBBox = visitTransfo->getBBox();
 
+    // Compute a box that covers the area of the ccd in focal plane coordinates.
+    // This is the box over which we want to compute the mean of the visit transform.
+    geom::Box2D ccdBBoxInFocal;
+    for (auto const &point : pixToFocal->applyForward(geom::Box2D(ccdBBox).getCorners())) {
+        ccdBBoxInFocal.include(point);
+    }
+
     // Unravel our chebyshev coefficients to build an astshim::ChebyMap.
     auto coeff_f = toChebyMapCoeffs(
             std::dynamic_pointer_cast<PhotometryTransfoChebyshev>(mapping->getVisitMapping()->getTransfo()));
@@ -271,8 +278,13 @@ std::shared_ptr<afw::image::PhotoCalib> ConstrainedFluxModel::toPhotoCalib(CcdIm
     // Now stitch them all together.
     auto transform = pixToFocal->then(chebyTransform)->then(zoomTransform);
     // NOTE: TransformBoundedField does not yet implement mean(), so we have to compute it here.
-    // TODO: restore this calculation as part of DM-16305
-    // double mean = mapping->getChipMapping()->getParameters()[0] * visitTransfo->mean(ccdBBoxInFocal);
+    std::cout << "ccd: " << ccdBBox << std::endl;
+    std::cout << "focal: " << focalBBox << std::endl;
+    std::cout << "ccdInFocal: " << ccdBBoxInFocal << std::endl;
+    std::cout << "Visit mean: " << visitTransfo->mean() << " " << visitTransfo->mean(ccdBBoxInFocal)
+              << std::endl;
+    std::cout << "areas: " << focalBBox.getArea() << " " << ccdBBoxInFocal.getArea() << std::endl;
+    double mean = mapping->getChipMapping()->getParameters()[0] * visitTransfo->mean(ccdBBoxInFocal);
     auto boundedField = std::make_shared<afw::math::TransformBoundedField>(ccdBBox, *transform);
     return std::make_shared<afw::image::PhotoCalib>(oldPhotoCalib->getCalibrationMean(),
                                                     oldPhotoCalib->getCalibrationErr(), boundedField, false);

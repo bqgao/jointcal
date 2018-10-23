@@ -240,6 +240,96 @@ class PhotometryTransfoChebyshevTestCase(PhotometryTransfoTestBase, abc.ABC):
                 expect.append(self._computeChebyshevDerivative(Ty[j], Tx[i], self.value))
         self.assertFloatsAlmostEqual(np.array(expect), result)
 
+    def testIntegrateBox(self):
+        """Test integrating over an "interesting" box.
+
+        The values of these integrals were checked in Mathematica. The code
+        block below can be pasted into Mathematica to re-do those calculations.
+
+        ::
+            f[x_, y_, n_, m_] := \!\(
+            \*UnderoverscriptBox[\(\[Sum]\), \(i = 0\), \(n\)]\(
+            \*UnderoverscriptBox[\(\[Sum]\), \(j = 0\), \(m\)]
+            \*SubscriptBox[\(a\), \(i, j\)]*ChebyshevT[i, x]*ChebyshevT[j, y]\)\)
+            integrate2dBox[n_, m_, xmin_, xmax_, ymin_, ymax_, x0_, x1_, y0_,
+              y1_] := \!\(
+            \*SubsuperscriptBox[\(\[Integral]\), \(y0\), \(y1\)]\(
+            \*SubsuperscriptBox[\(\[Integral]\), \(x0\), \(x1\)]f[
+            \*FractionBox[\(2  x - xmin - xmax\), \(xmax - xmin\)],
+            \*FractionBox[\(2  y - ymin - ymax\), \(ymax - ymin\)], n,
+                 m] \[DifferentialD]x \[DifferentialD]y\)\)
+            integrate2dBox[0, 0, -5, 7, -6, 8, 0, 7, 0, 8]
+            integrate2dBox[0, 0, -5, 7, -6, 8, 2, 6, 3, 5]
+            # integrate2dBox[1, 0, -5, 7, -6, 8, 0, 6, 0, 5]
+            # integrate2dBox[0, 1, -5, 7, -6, 8, 0, 6, 0, 5]
+            integrate2dBox[1, 1, -5, 7, -6, 8, -1, 5., 2, 7]
+            integrate2dBox[2, 2, -5, 7, -6, 8, 0, 2, 0, 3]
+        """
+        # for 0th order
+        coeffs = np.array([[3.]], dtype=float)
+        transform = photometryTransfo.FluxTransfoChebyshev(coeffs, self.bbox)
+
+        box = lsst.geom.Box2D(lsst.geom.Point2D(0, 0), lsst.geom.Point2D(7, 8))
+        expect = 56*coeffs[0]
+        result = transform.integrate(box)
+        self.assertFloatsAlmostEqual(result, expect)
+
+        box = lsst.geom.Box2D(lsst.geom.Point2D(2, 3), lsst.geom.Point2D(6, 5))
+        expect = 8*coeffs[0]
+        result = transform.integrate(box)
+        self.assertFloatsAlmostEqual(result, expect)
+
+        print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+
+        # box = lsst.geom.Box2D(lsst.geom.Point2D(0, 0), lsst.geom.Point2D(6, 5))
+        # # 1st order in x:
+        # coeffs = np.array([[2.], [5.]], dtype=float)
+        # transform = photometryTransfo.FluxTransfoChebyshev(coeffs, self.bbox)
+        # # transform.offsetParams([[2., 5.], [0, 0]])
+        # # 30*a00 + 10*a10
+        # expect = 30*coeffs[0, 0] + 10*coeffs[1, 0]
+        # result = transform.integrate(box)
+        # self.assertFloatsAlmostEqual(result, expect)
+        # # 1st order in y:
+        # transform = photometryTransfo.FluxTransfoChebyshev(1, self.bbox)
+        # transform.offsetParams([2., 0., 5.])
+        # # 30*a00 + 45/7*a01
+        # expect = 30*coeffs[0, 0] + 45./7.*coeffs[0, 1]
+        # result = transform.integrate(box)
+        # self.assertFloatsAlmostEqual(result, expect)
+
+        # for 1st order in both x and y
+        box = lsst.geom.Box2D(lsst.geom.Point2D(-1, 2), lsst.geom.Point2D(5, 7))
+        transform = photometryTransfo.FluxTransfoChebyshev(2, self.bbox)
+        # zero, then set the parameters
+        transform.offsetParams(np.array([1, 0, 0, 0, 0, 0, 0, 0, 0], dtype=float))
+        coeffs = np.array([[1, 2, 0], [3, 4, 0], [0, 0, 0]], dtype=float)
+        transform.offsetParams(-coeffs.flatten())
+        # 3/8*(56*a00 + 20*a0,1 + 14*a1,0 + 5*a11)
+        expect = 3.0/8.0*(56*coeffs[0, 0] + 20*coeffs[0, 1] + 14*coeffs[1, 0] + 5*coeffs[1, 1])
+
+        import os; print(os.getpid()); import ipdb; ipdb.set_trace();
+        single = transform.integrate()
+        result = transform.integrate(self.bbox)
+
+        result = transform.integrate(box)
+
+        # self.assertFloatsAlmostEqual(result, expect)
+
+        # for 2nd order in both x and y
+        box = lsst.geom.Box2D(lsst.geom.Point2D(0, 0), lsst.geom.Point2D(2, 3))
+        coeffs = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=float)
+        transform = photometryTransfo.FluxTransfoChebyshev(2, self.bbox)
+        # zero, then set the parameters
+        transform.offsetParams(np.array([1, 0, 0, 0, 0, 0, 0, 0, 0], dtype=float))
+        transform.offsetParams(-coeffs.flatten())
+        # 1/882 * (5292*a00 + 378*a01 - 5076*a02 - 5194*a20 - 371*a21 + 4982*a22)
+        expect = 1./882. * (5292*coeffs[0, 0] + 378*coeffs[0, 1] -
+                            5076*coeffs[0, 2] - 5194*coeffs[2, 0] -
+                            371*coeffs[2, 1] + 4982*coeffs[2, 2])
+        result = transform.integrate(box)
+        self.assertFloatsAlmostEqual(result, expect)
+
 
 class FluxTransfoChebyshevTestCase(PhotometryTransfoChebyshevTestCase, lsst.utils.tests.TestCase):
     def setUp(self):
