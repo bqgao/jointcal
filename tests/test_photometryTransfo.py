@@ -241,12 +241,13 @@ class PhotometryTransfoChebyshevTestCase(PhotometryTransfoTestBase, abc.ABC):
         self.assertFloatsAlmostEqual(np.array(expect), result)
 
     def testIntegrateBox(self):
-        """Test integrating over an "interesting" box.
+        r"""Test integrating over an "interesting" box.
 
         The values of these integrals were checked in Mathematica. The code
         block below can be pasted into Mathematica to re-do those calculations.
 
-        ::
+        .. code-block:: mathematica
+
             f[x_, y_, n_, m_] := \!\(
             \*UnderoverscriptBox[\(\[Sum]\), \(i = 0\), \(n\)]\(
             \*UnderoverscriptBox[\(\[Sum]\), \(j = 0\), \(m\)]
@@ -269,7 +270,9 @@ class PhotometryTransfoChebyshevTestCase(PhotometryTransfoTestBase, abc.ABC):
         coeffs = np.array([[3.]], dtype=float)
         transform = photometryTransfo.FluxTransfoChebyshev(coeffs, self.bbox)
 
-        box = lsst.geom.Box2D(lsst.geom.Point2D(0, 0), lsst.geom.Point2D(7, 8))
+        # a box that goes to the x/y maximum
+        box = lsst.geom.Box2D(lsst.geom.Point2D(0, 0),
+                              lsst.geom.Point2D(self.bbox.getMaxX(), self.bbox.getMaxY()))
         expect = 56*coeffs[0]
         result = transform.integrate(box)
         self.assertFloatsAlmostEqual(result, expect)
@@ -298,20 +301,24 @@ class PhotometryTransfoChebyshevTestCase(PhotometryTransfoTestBase, abc.ABC):
         # result = transform.integrate(box)
         # self.assertFloatsAlmostEqual(result, expect)
 
-        # for 1st order in both x and y
-        box = lsst.geom.Box2D(lsst.geom.Point2D(-1, 2), lsst.geom.Point2D(5, 7))
+        # 1st order in both x and y
         transform = photometryTransfo.FluxTransfoChebyshev(2, self.bbox)
         # zero, then set the parameters
         transform.offsetParams(np.array([1, 0, 0, 0, 0, 0, 0, 0, 0], dtype=float))
         coeffs = np.array([[1, 2, 0], [3, 4, 0], [0, 0, 0]], dtype=float)
         transform.offsetParams(-coeffs.flatten())
+
+        # integrating on the full box should match the standard integral
+        expect = transform.integrate()
+        result = transform.integrate(self.bbox)
+        self.assertFloatsAlmostEqual(result, expect)
+
+        # integrate on the smaller box:
+        box = lsst.geom.Box2D(lsst.geom.Point2D(-1, 2), lsst.geom.Point2D(5, 7))
         # 3/8*(56*a00 + 20*a0,1 + 14*a1,0 + 5*a11)
         expect = 3.0/8.0*(56*coeffs[0, 0] + 20*coeffs[0, 1] + 14*coeffs[1, 0] + 5*coeffs[1, 1])
 
         import os; print(os.getpid()); import ipdb; ipdb.set_trace();
-        single = transform.integrate()
-        result = transform.integrate(self.bbox)
-
         result = transform.integrate(box)
 
         # self.assertFloatsAlmostEqual(result, expect)

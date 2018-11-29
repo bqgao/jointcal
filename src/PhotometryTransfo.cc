@@ -189,6 +189,7 @@ double PhotometryTransfoChebyshev::integrate(lsst::geom::Box2D const &bbox) cons
     result -= oneIntegral(bbox.getMaxX(), bbox.getMinY());
     result -= oneIntegral(bbox.getMinX(), bbox.getMaxY());
 
+    std::cout << "result: " << result << std::endl;
     std::cout << "###############################################" << std::endl;
 
     return result;
