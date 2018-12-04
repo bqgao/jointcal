@@ -349,10 +349,14 @@ class ConstrainedMagnitudeModelTestCase(ConstrainedPhotometryModelTestCase,
         self.assertFalse(model.checkPositiveOnBBox(struct.ccdImageList[0]))
 
     def test_validate(self):
-        self.assertTrue(self.model.validate(self.ccdImageList))
-        # Make the model go negative
+        print()
+        print("PARAMS:", self.model.getTotalParameters())
+        # Need at least 20 degrees (2 visits, 10 params each) of freedom to fit this model.
+        self.assertTrue(self.model.validate(self.ccdImageList, 20))
+        self.assertFalse(self.model.validate(self.ccdImageList, 19))
+        # Make the model go negative on the bbox, which is invalid.
         self.model.offsetParams(-3*self.delta)
-        self.assertFalse(self.model.validate(self.ccdImageList))
+        self.assertFalse(self.model.validate(self.ccdImageList, 100))
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):

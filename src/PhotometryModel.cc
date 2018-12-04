@@ -30,11 +30,16 @@
 namespace lsst {
 namespace jointcal {
 
-bool PhotometryModel::validate(CcdImageList const &ccdImageList) const {
+bool PhotometryModel::validate(CcdImageList const &ccdImageList, int ndof) const {
     bool check = true;
     for (auto const &ccdImage : ccdImageList) {
         // Don't short circuit so that we log every place the model is negative.
         check &= checkPositiveOnBBox(*ccdImage);
+    }
+    if (ndof - 1 < getTotalParameters()) {
+        check &= false;
+        LOGLS_WARN(_log, "Not enough degrees of freedom (" << ndof << ") to fit model with "
+                                                           << getTotalParameters() << " parameters.");
     }
     return check;
 }

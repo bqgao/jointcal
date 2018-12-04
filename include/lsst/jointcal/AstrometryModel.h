@@ -95,7 +95,15 @@ public:
      * @param ccdImageList The ccdImages to test the model validity on.
      * @return True if the model is valid on all ccdImages.
      */
-    bool validate(CcdImageList const &ccdImageList) const { return true; }
+    bool validate(CcdImageList const &ccdImageList, int ndof) const {
+        return true;
+        // bool check = true;
+        // if (ndof > getTotalParameters()) {
+        //     check &= false;
+        //     LOGLS_ERROR(_log, "Not enough degrees of freedom (" << ndof << ") to fit model with "
+        //                                                         << getTotalParameters() << " parameters.");
+        // }
+    }
 
 protected:
     /// Return a pointer to the mapping associated with this ccdImage.
